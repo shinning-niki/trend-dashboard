@@ -52,6 +52,17 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
+      - name: Push dist to cloudstudio branch (for WorkBuddy auto-deploy)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan cloudstudio
+          git rm -rf . 2>/dev/null || true
+          cp dashboard/dist/index.html .
+          git add index.html
+          git commit -m "deploy: $(date -u +%Y-%m-%d)"
+          git push origin cloudstudio --force
+
       - name: Report
         if: always()
         run: |
