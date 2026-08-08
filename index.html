@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="趋势看板">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'><rect width='180' height='180' rx='32' fill='%230d1117'/><text x='90' y='118' text-anchor='middle' font-size='96'>📈</text></svg>">
+<title>趋势看板 · 2026-08-07</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { background:#0d1117; color:#e6edf3; font-family:-apple-system,"PingFang SC","Helvetica Neue",sans-serif;
+         font-size:15px; line-height:1.5; padding-bottom:40px; }
+  .wrap { max-width:520px; margin:0 auto; padding:14px 14px 0; }
+  header { padding:10px 2px 14px; }
+  h1 { font-size:21px; font-weight:700; letter-spacing:1px; }
+  .hsub { color:#8b949e; font-size:12.5px; margin-top:4px; }
+  .advice { background:linear-gradient(135deg,#1c2333,#161b27); border:1px solid #2d333f;
+            border-radius:14px; padding:16px 15px; margin-bottom:8px; }
+  .atitle { font-size:13px; color:#8b949e; letter-spacing:2px; margin-bottom:10px; }
+  .aline { font-size:15px; font-weight:600; line-height:1.6; margin-bottom:6px; }
+  .stats { display:flex; gap:8px; margin:12px 0 4px; }
+  .stat { flex:1; background:#161b22; border:1px solid #262b33; border-radius:10px;
+          padding:9px 4px; text-align:center; }
+  .stat b { display:block; font-size:17px; }
+  .stat span { font-size:11px; color:#8b949e; }
+  .ghead { font-size:14.5px; font-weight:700; margin:20px 2px 9px; letter-spacing:1px; }
+  .card { background:#161b22; border:1px solid #262b33; border-left:3px solid #444;
+          border-radius:12px; padding:12px 13px; margin-bottom:9px; }
+  .crow1 { display:flex; justify-content:space-between; align-items:baseline; }
+  .name { font-size:16px; font-weight:600; }
+  .asset { font-size:11px; color:#8b949e; }
+  .crow2 { margin-top:5px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .price { font-size:15px; font-weight:600; color:#c9d1d9; font-variant-numeric:tabular-nums; }
+  .rets { font-size:12.5px; font-variant-numeric:tabular-nums; }
+  .up { color:#f85149; } .dn { color:#3fb950; } .fl { color:#8b949e; } .na { color:#565d66; }
+  .pos { color:#0d1117; font-size:12px; font-weight:700; border-radius:5px; padding:1px 8px; margin-left:auto; }
+  .crow3 { margin-top:8px; display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+  .temp { color:#0d1117; font-size:11.5px; font-weight:700; border-radius:5px; padding:1px 7px; }
+  .trans i { font-style:normal; color:#0d1117; font-size:10.5px; border-radius:4px; padding:0 4px; opacity:.75; }
+  .trans { font-size:11px; color:#8b949e; }
+  .phase { font-size:11.5px; color:#c9a86a; border:1px solid #4d4028; border-radius:5px; padding:0 6px; }
+  .days { font-size:11.5px; color:#58a6ff; border:1px solid #1f3a5f; border-radius:5px; padding:1px 6px; }
+  .tag { font-size:12px; color:#d2a8ff; border:1px solid #3d2d52; border-radius:5px; padding:1px 6px; }
+  .tag.danger { color:#ff7b72; border-color:#5a2d2a; font-weight:700; }
+  .src { font-size:10.5px; color:#7ee787; border:1px solid #1f4630; border-radius:5px; padding:0 5px; }
+  .sbar { height:7px; background:#262b33; border-radius:4px; margin-top:10px; overflow:hidden; }
+  .sfill { height:100%; background:linear-gradient(90deg,#2f81f7,#a371f7); border-radius:4px; }
+  .sval { font-size:16px; color:#8b949e; margin-top:4px; text-align:right; }
+  .sval b { font-size:19px; color:#e6edf3; font-variant-numeric:tabular-nums; }
+  .crow4 { margin-top:10px; padding-top:10px; border-top:1px dashed #2d333f; }
+  .sigtag { font-size:17px; font-weight:700; display:block; letter-spacing:.5px; }
+  .note { font-size:13.5px; color:#c9d1d9; display:block; margin-top:4px; line-height:1.55; }
+  .rej { color:#6e7681; font-size:12px; margin:6px 2px 0; line-height:1.7; }
+  footer { margin-top:26px; padding:14px 4px 0; border-top:1px solid #21262d;
+           color:#6e7681; font-size:11.5px; line-height:1.8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📈 趋势看板</h1>
+    <div class="hsub">数据日期 2026-08-07 · 生成于 2026-08-08 20:32 · 纪律 v2.2</div>
+  </header>
+
+  <section class="advice">
+    <div class="atitle">今日建议操作</div>
+    <div class="aline" style="color:#3fb950">✨ 今日推荐关注 4 只：百济神州、海正药业、金域医学、普洛药业（九条件全满足，详见推荐区）。</div>
+  </section>
+
+  <div class="stats">
+    <div class="stat"><b>1/10</b><span>持有池右侧</span></div>
+    <div class="stat"><b>4/24</b><span>推荐入选</span></div>
+    <div class="stat"><b>¥0.092</b><span>本次取数费</span></div>
+    <div class="stat"><b>¥3.442</b><span>账户余额</span></div>
+  </div>
+
+  
+    <div class="ghead" style="color:#e6edf3">📌 我的持仓（10）</div>
+    
+      <div class="card" style="border-left-color:#8a8f98">
+        <div class="crow1"><span class="name">灵宝黄金</span><span class="asset">港股 3330.HK</span></div>
+        <div class="crow2"><span class="price">24.079</span>
+          <span class="rets">日 <span class="up">+6.54%</span> · 周 <span class="up">+24.77%</span> · 月 <span class="up">+57.26%</span></span></div>
+        <div class="crow3"><span class="temp" style="background:#ffa940">温</span><span class="tag">港股通</span></div>
+        <div class="sbar"><div class="sfill" style="width:95%"></div></div><div class="sval">强度 <b>95.4</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#8a8f98">仓位建议：观望</div><div class="note">趋势左侧，但强度95已临近右侧，密切关注转右信号（分析判断）</div></div>
+      </div>
+
+      <div class="card" style="border-left-color:#2f81f7">
+        <div class="crow1"><span class="name">中国有色矿业</span><span class="asset">港股 1258.HK</span></div>
+        <div class="crow2"><span class="price">16.119</span>
+          <span class="rets">日 <span class="up">+1.00%</span> · 周 <span class="up">+9.29%</span> · 月 <span class="up">+34.67%</span></span></div>
+        <div class="crow3"><span class="temp" style="background:#ff7a45">热</span><span class="phase">立夏</span><span class="days">右侧4天</span><span class="tag">港股通</span></div>
+        <div class="sbar"><div class="sfill" style="width:94%"></div></div><div class="sval">强度 <b>94.2</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#2f81f7">仓位建议：继续持有</div><div class="note">右侧趋势中（节气立夏），温度偏热，勿追高</div></div>
+      </div>
+
+      <div class="card" style="border-left-color:#8a8f98">
+        <div class="crow1"><span class="name">中国稀土</span><span class="asset">A股 000831.SZ</span></div>
+        <div class="crow2"><span class="price">57.19</span>
+          <span class="rets">日 <span class="up">+10.00%</span> · 周 <span class="up">+19.59%</span> · 月 <span class="up">+19.59%</span></span></div>
+        <div class="crow3"><span class="temp" style="background:#8a8f98">平</span></div>
+        <div class="sbar"><div class="sfill" style="width:92%"></div></div><div class="sval">强度 <b>92.2</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#8a8f98">仓位建议：观望</div><div class="note">趋势左侧，但强度92已临近右侧，密切关注转右信号（分析判断）</div></div>
+      </div>
+
+      <div class="card" style="border-left-color:#8a8f98">
+        <div class="crow1"><span class="name">纳斯达克100ETF大成</span><span class="asset">ETF基金 159513</span></div>
+        <div class="crow2"><span class="price">1.824</span>
+          <span class="rets">日 <span class="up">+0.55%</span> · 周 <span class="up">+6.05%</span> · 月 <span class="up">+2.53%</span></span></div>
+        <div class="crow3"><span class="temp" style="background:#8a8f98">平</span></div>
+        <div class="sbar"><div class="sfill" style="width:89%"></div></div><div class="sval">强度 <b>88.9</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#8a8f98">仓位建议：观望</div><div class="note">趋势左侧，但强度89已临近右侧，密切关注转右信号（分析判断）</div></div>
+      </div>
+
+      <div class="card" style="border-left-color:#8a8f98">
+        <div class="crow1"><span class="name">恒生科技ETF天弘</span><span class="asset">ETF基金 520920</span></div>
+        <div class="crow2"><span class="price">0.717</span>
+          <span class="rets">日 <span class="up">+0.42%</span> · 周 <span class="up">+0.70%</span> · 月 <span class="up">+1.27%</span></span></div>
+        <div class="crow3"><span class="temp" style="background:#8a8f98">平</span></div>
+        <div class="sbar"><div class="sfill" style="width:72%"></div></div><div class="sval">强度 <b>71.6</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#8a8f98">仓位建议：观望</div><div class="note">趋势左侧，但强度72已临近右侧，密切关注转右信号（分析判断）</div></div>
+      </div>
+
+      <div class="card" style="border-left-color:#6e7681">
+        <div class="crow1"><span class="name">红利低波50ETF南方</span><span class="asset">ETF基金 515450</span></div>
+        <div class="crow2"><span class="price">1.395</span>
+          <span class="rets">日 <span class="dn">-0.78%</span> · 周 <span class="dn">-4.32%</span> · 月 <span class="up">+3.09%</span></span></div>
+        <div class="crow3"><span class="temp" style="background:#8a8f98">平</span></div>
+        <div class="sbar"><div class="sfill" style="width:51%"></div></div><div class="sval">强度 <b>50.8</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#6e7681">仓位建议：回避</div><div class="note">趋势左侧（温度平），不抄底、不补仓</div></div>
+      </div>
+
+      <div class="card" style="border-left-color:#6e7681">
+        <div class="crow1"><span class="name">人工智能ETF</span><span class="asset">ETF基金 </span></div>
+        <div class="crow2"><span class="price">1.837</span>
+          <span class="rets">日 <span class="up">+1.11%</span> · 周 <span class="up">+7.01%</span> · 月 <span class="dn">-12.04%</span></span></div>
+        <div class="crow3"><span class="temp" style="background:#8a8f98">平</span><span class="tag">成交主力</span></div>
+        <div class="sbar"><div class="sfill" style="width:32%"></div></div><div class="sval">强度 <b>31.5</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#6e7681">仓位建议：回避</div><div class="note">趋势左侧（温度平），不抄底、不补仓</div></div>
+      </div>
+
+      <div class="card" style="border-left-color:#6e7681">
+        <div class="crow1"><span class="name">科创芯片ETF嘉实</span><span class="asset">ETF基金 588200</span></div>
+        <div class="crow2"><span class="price">1.217</span>
+          <span class="rets">日 <span class="up">+3.14%</span> · 周 <span class="up">+9.15%</span> · 月 <span class="dn">-20.04%</span></span></div>
+        <div class="crow3"><span class="temp" style="background:#8a8f98">平</span></div>
+        <div class="sbar"><div class="sfill" style="width:30%"></div></div><div class="sval">强度 <b>30.0</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#6e7681">仓位建议：回避</div><div class="note">趋势左侧（温度平），不抄底、不补仓</div></div>
+      </div>
+
+      <div class="card" style="border-left-color:#6e7681">
+        <div class="crow1"><span class="name">卫星ETF永赢</span><span class="asset">ETF基金 159206</span></div>
+        <div class="crow2"><span class="price">1.448</span>
+          <span class="rets">日 <span class="up">+3.58%</span> · 周 <span class="up">+15.75%</span> · 月 <span class="dn">-19.33%</span></span></div>
+        <div class="crow3"><span class="temp" style="background:#8a8f98">平</span></div>
+        <div class="sbar"><div class="sfill" style="width:17%"></div></div><div class="sval">强度 <b>17.3</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#6e7681">仓位建议：回避</div><div class="note">趋势左侧（温度平），不抄底、不补仓</div></div>
+      </div>
+
+      <div class="card" style="border-left-color:#6e7681">
+        <div class="crow1"><span class="name">中证1000</span><span class="asset">全球股指 000852</span></div>
+        <div class="crow2"><span class="price">7679.52</span>
+          <span class="rets">日 <span class="up">+1.98%</span> · 周 <span class="up">+8.54%</span> · 月 <span class="dn">-6.33%</span></span></div>
+        <div class="crow3"><span class="temp" style="background:#8a8f98">平</span></div>
+        <div class="sbar"><div class="sfill" style="width:13%"></div></div><div class="sval">强度 <b>13.4</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#6e7681">仓位建议：回避</div><div class="note">趋势左侧（温度平），不抄底、不补仓</div></div>
+      </div>
+    <div class="ghead" style="color:#3fb950">✨ 今日推荐关注（多榜单·九条件筛选，入选 4/24）</div>
+    
+      <div class="card" style="border-left-color:#3fb950">
+        <div class="crow1"><span class="name">普洛药业</span><span class="asset">A股 000739.SZ</span></div>
+        <div class="crow2"><span class="price">23.41</span>
+          <span class="rets">日 <span class="na">—</span> · 周 <span class="na">—</span> · 月 <span class="na">—</span></span><span class="pos" style="background:#3fb950">全仓</span></div>
+        <div class="crow3"><span class="trans"><i style="background:#ffa940">温</i>→</span><span class="temp" style="background:#ff7a45">热</span><span class="phase">夏至</span><span class="src">温转热(A股)</span></div>
+        <div class="sbar"><div class="sfill" style="width:99%"></div></div><div class="sval">强度 <b>99.2</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#3fb950">仓位建议：全仓</div><div class="note">温度由温转热（当前为热），触发全仓信号；九条件全满足</div></div>
+      </div>
+      <div class="card" style="border-left-color:#3fb950">
+        <div class="crow1"><span class="name">海正药业</span><span class="asset">A股 600267.SH</span></div>
+        <div class="crow2"><span class="price">13.11</span>
+          <span class="rets">日 <span class="na">—</span> · 周 <span class="na">—</span> · 月 <span class="na">—</span></span><span class="pos" style="background:#3fb950">全仓</span></div>
+        <div class="crow3"><span class="trans"><i style="background:#ffa940">温</i>→</span><span class="temp" style="background:#ff7a45">热</span><span class="phase">立夏</span><span class="src">温转热(A股)</span></div>
+        <div class="sbar"><div class="sfill" style="width:99%"></div></div><div class="sval">强度 <b>98.7</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#3fb950">仓位建议：全仓</div><div class="note">温度由温转热（当前为热），触发全仓信号；九条件全满足</div></div>
+      </div>
+      <div class="card" style="border-left-color:#3fb950">
+        <div class="crow1"><span class="name">金域医学</span><span class="asset">A股 603882.SH</span></div>
+        <div class="crow2"><span class="price">28.97</span>
+          <span class="rets">日 <span class="na">—</span> · 周 <span class="na">—</span> · 月 <span class="na">—</span></span><span class="pos" style="background:#3fb950">全仓</span></div>
+        <div class="crow3"><span class="trans"><i style="background:#ffa940">温</i>→</span><span class="temp" style="background:#ff7a45">热</span><span class="phase">立夏</span><span class="src">温转热(A股)</span></div>
+        <div class="sbar"><div class="sfill" style="width:99%"></div></div><div class="sval">强度 <b>98.7</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#3fb950">仓位建议：全仓</div><div class="note">温度由温转热（当前为热），触发全仓信号；九条件全满足</div></div>
+      </div>
+      <div class="card" style="border-left-color:#3fb950">
+        <div class="crow1"><span class="name">百济神州</span><span class="asset">A股 688235.SH</span></div>
+        <div class="crow2"><span class="price">299.32</span>
+          <span class="rets">日 <span class="na">—</span> · 周 <span class="na">—</span> · 月 <span class="na">—</span></span><span class="pos" style="background:#3fb950">全仓</span></div>
+        <div class="crow3"><span class="trans"><i style="background:#ffa940">温</i>→</span><span class="temp" style="background:#ff7a45">热</span><span class="phase">立夏</span><span class="src">温转热(A股)</span></div>
+        <div class="sbar"><div class="sfill" style="width:96%"></div></div><div class="sval">强度 <b>96.5</b></div>
+        <div class="crow4"><div class="sigtag" style="color:#3fb950">仓位建议：全仓</div><div class="note">温度由温转热（当前为热），触发全仓信号；九条件全满足</div></div>
+      </div><div class="rej">未入选 20 只：行云科技(行业温度平)、招金黄金(行业温度平)、奥浦迈(行业温度平)、*ST发展(行业温度平)、哈三联(市值21亿≤100)、宏昌科技(行业温度平)、景旺电子(行业温度平)、宁夏建材(行业温度平) 等</div>
+
+  <footer>
+    数据源：趋势动物 API。行情与趋势指标为接口直接返回；仓位建议按纪律 v2.2（骄阳定制）机械判定：危险信号/温转平→清仓，温转热·热→全仓，温转热·沸→半仓止盈；推荐模块为温转热榜单成分经九条件筛选（行业温度≥温），未入选原因已标注。<br>
+    趋势动物指标仅供趋势交易研究与纪律执行参考，不构成投资建议或收益承诺。市场有风险，盈亏自负。
+  </footer>
+</div>
+</body>
+</html>
