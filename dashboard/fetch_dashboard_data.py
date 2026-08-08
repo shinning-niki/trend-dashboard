@@ -91,6 +91,8 @@ def main():
     board_names = CFG.get("boardNames", {})
     max_age = CFG.get("boardCacheMaxAgeDays", 14) * 86400
 
+    (BASE / "data").mkdir(exist_ok=True)
+
     status = call("getUpdateStatus")
     must_ok(status, "getUpdateStatus")
     bal0 = balance()
