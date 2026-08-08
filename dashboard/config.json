@@ -1,0 +1,25 @@
+{
+  "apiKey": "",
+  "held": [445405, 308265, 328248, 328879, 329214, 328228, 339131, 328141, 614601, 626519, 328481, 620474],
+  "watch": [],
+  "boardsDaily": [622466, 622485, 452336, 620461],
+  "boardsCached": [708048],
+  "boardCacheMaxAgeDays": 14,
+  "boardNames": {"622466": "温转热(A股)", "622485": "温转热(ETF)", "452336": "历史新高(ETF)", "620461": "立夏(ETF)", "708048": "右侧基金(ETF)"},
+  "preFilterFields": ["trendTemperaturePrev", "trendTemperatureCurr", "trendStrengthLocalCurr", "trendPhaseCurr"],
+  "bigBoardThreshold": 40,
+  "poolFields": ["priceIndex", "return1d", "return1w", "return1m", "marketCap", "amount1d", "isTrendRightSide", "trendTemperatureCurr", "trendTemperaturePrev", "trendPhaseCurr", "trendStrengthLocalCurr", "daysSinceTrendEntry", "tickerLabels", "stopwinFlagByDangerSignal", "stopwinFlagByBoilingTemperature"],
+  "candidateFields": ["industryTrendTemperatureCurr", "marketCap", "amount1d", "priceIndex", "isTrendRightSide", "stopwinFlagByDangerSignal"],
+  "filters": {
+    "strengthMin": 95,
+    "industryTempAllowed": ["温", "热", "沸"],
+    "marketCapMin": 100,
+    "amount1dMin": 2,
+    "priceMax": 500,
+    "phases": ["清明", "谷雨", "立夏", "小满", "芒种", "夏至"],
+    "excludeST": true,
+    "excludeBJ": true
+  },
+  "disciplineVersion": "v2.2",
+  "note": "apiKey 由环境变量 TREND_API_KEY 注入（GitHub Actions Secret），本地运行时回退到 config.json。"
+}

@@ -1,0 +1,65 @@
+name: Update Trend Dashboard
+
+on:
+  schedule:
+    # UTC 12:00 = Beijing 20:00 (每晚8点)
+    - cron: '0 12 * * *'
+  # 允许手动触发
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: dashboard-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Cache weekly boards
+        uses: actions/cache@v4
+        with:
+          path: dashboard/data/_weekly_boards.json
+          key: weekly-boards-${{ github.run_id }}
+          restore-keys: |
+            weekly-boards-
+
+      - name: Fetch dashboard data
+        env:
+          TREND_API_KEY: ${{ secrets.TREND_API_KEY }}
+        run: python dashboard/fetch_dashboard_data.py
+
+      - name: Build dashboard
+        run: python dashboard/build_dashboard.py
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Report
+        if: always()
+        run: |
+          echo "## Dashboard Update Report" >> $GITHUB_STEP_SUMMARY
+          echo "$(cat dashboard/meta.json)" >> $GITHUB_STEP_SUMMARY
+          if [ -f dashboard/dist/index.html ]; then
+            echo "Build OK" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Build FAILED" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
