@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -54,14 +54,38 @@ jobs:
 
       - name: Push dist to cloudstudio branch (for WorkBuddy auto-deploy)
         run: |
+          cp dashboard/dist/index.html /tmp/index.html
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout --orphan cloudstudio
+          git fetch origin cloudstudio 2>/dev/null || true
+          if git rev-parse --verify origin/cloudstudio >/dev/null 2>&1; then
+            git checkout -b cloudstudio origin/cloudstudio
+          else
+            git checkout --orphan cloudstudio
+          fi
           git rm -rf . 2>/dev/null || true
-          cp dashboard/dist/index.html .
+          cp /tmp/index.html .
           git add index.html
-          git commit -m "deploy: $(date -u +%Y-%m-%d)"
+          git commit -m "deploy: $(date -u +%Y-%m-%d)" || echo "nothing to commit"
           git push origin cloudstudio --force
+
+      - name: Push dist to netlify branch (for Netlify auto-deploy)
+        run: |
+          cp dashboard/dist/index.html /tmp/index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout main
+          git fetch origin netlify 2>/dev/null || true
+          if git rev-parse --verify origin/netlify >/dev/null 2>&1; then
+            git checkout -b netlify origin/netlify
+          else
+            git checkout --orphan netlify
+          fi
+          git rm -rf . 2>/dev/null || true
+          cp /tmp/index.html .
+          git add index.html
+          git commit -m "deploy: $(date -u +%Y-%m-%d)" || echo "nothing to commit"
+          git push origin netlify --force
 
       - name: Report
         if: always()
