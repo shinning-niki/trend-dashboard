@@ -2,8 +2,8 @@ name: Update Trend Dashboard
 
 on:
   schedule:
-    # UTC 12:00 = Beijing 20:00，仅周一至周五（1-5）；周末A股/ETF不开盘，数据不变，跳过省API费用
-    - cron: '0 12 * * 1-5'
+    # UTC 22:00 = Beijing 06:00，仅周一至周五（1-5）；周末A股/ETF不开盘，数据不变，跳过省API费用
+    - cron: '0 22 * * 1-5'
   # 允许手动触发（含周末，用于紧急更新）
   workflow_dispatch:
 
