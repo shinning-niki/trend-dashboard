@@ -11,7 +11,7 @@
   "poolFields": ["priceIndex", "return1d", "return1w", "return1m", "marketCap", "amount1d", "isTrendRightSide", "trendTemperatureCurr", "trendTemperaturePrev", "trendPhaseCurr", "trendStrengthLocalCurr", "daysSinceTrendEntry", "tickerLabels", "stopwinFlagByDangerSignal", "stopwinFlagByBoilingTemperature"],
   "candidateFields": ["industryTrendTemperatureCurr", "marketCap", "amount1d", "priceIndex", "isTrendRightSide", "stopwinFlagByDangerSignal"],
   "filters": {
-    "strengthMin": 95,
+    "strengthMin": 97,
     "industryTempAllowed": ["温", "热", "沸"],
     "marketCapMin": 100,
     "amount1dMin": 2,
@@ -21,5 +21,5 @@
     "excludeBJ": true
   },
   "disciplineVersion": "v2.3",
-  "note": "v2.3：砍3个零产出源（历史新高ETF/立夏ETF/右侧基金ETF），仅留温转热A股+ETF；周末跳过运行。apiKey由环境变量TREND_API_KEY注入，本地回退到config.json。"
+  "note": "v2.3：砍3个零产出源（历史新高ETF/立夏ETF/右侧基金ETF），仅留温转热A股+ETF；周末跳过；强度门槛>97（9/7调，降粗筛幸存者减成本）。apiKey由环境变量TREND_API_KEY注入，本地回退到config.json。"
 }
