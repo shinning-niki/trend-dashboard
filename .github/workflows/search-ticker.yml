@@ -1,0 +1,50 @@
+name: Search Ticker
+
+# 一次性工具：通过关键词查询趋势动物平台的 tmId 列表。
+# 手动触发：gh workflow run search-ticker.yml -f keyword=有色金属
+# 查看结果：gh run watch <run-id>  或  gh run view --log
+on:
+  workflow_dispatch:
+    inputs:
+      keyword:
+        description: "搜索关键词（基金名称或代码片段）"
+        required: true
+        default: "有色金属"
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Search TrendAnimal ticker
+        env:
+          TREND_API_KEY: ${{ secrets.TREND_API_KEY }}
+        run: |
+          set -e
+          KW="${{ github.event.inputs.keyword }}"
+          echo ">>> Searching for: $KW"
+          QS="apiKey=${TREND_API_KEY}&keyword=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$KW")"
+          RESP=$(curl -sS --max-time 30 "https://www.trendtrader.cn/apiData/data/searchTicker?${QS}" \
+                 -H "User-Agent: trend-dashboard/search")
+          echo "$RESP" | python3 -c "
+          import json, sys
+          raw = sys.stdin.read()
+          try:
+              d = json.loads(raw)
+          except Exception as e:
+              print('RAW RESPONSE:')
+              print(raw[:2000])
+              sys.exit(1)
+          if d.get('code') != '00000':
+              print('API ERROR:', d.get('code'), d.get('msg'))
+              sys.exit(2)
+          rows = d.get('data', []) or []
+          print('=== %d result(s) ===' % len(rows))
+          print('%-12s %-12s %-40s %s' % ('tmId', 'ticker', 'name', 'extra'))
+          for r in rows:
+              print('%-12s %-12s %-40s %s' % (
+                  r.get('tmId',''),
+                  r.get('tickerCode', r.get('symbol','')) or '',
+                  r.get('tickerName','')[:40],
+                  json.dumps({k:v for k,v in r.items() if k not in ('tmId','tickerCode','symbol','tickerName')}, ensure_ascii=False)[:80]
+              ))
+          "
