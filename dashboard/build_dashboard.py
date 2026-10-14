@@ -201,16 +201,19 @@ def main():
         name = r.get("tickerName", "")
         labels = r.get("tickerLabels") or ""
         return any(k in name for k in defense_kw) or "红利" in labels
-    picks_defense = [(r, f) for r, f in picks_sorted if is_defense(r)]
-    picks_attack = [(r, f) for r, f in picks_sorted if not is_defense(r)]
+    max_per = CFG.get("maxPerLayer", 15)
+    picks_defense = [(r, f) for r, f in picks_sorted if is_defense(r)][:max_per]
+    picks_attack = [(r, f) for r, f in picks_sorted if not is_defense(r)][:max_per]
     def render_picks(plist):
         html = ""
-        note = "基金四条件全满足（右侧+温度≥温+强度≥85）"
+        note = "基金四条件全满足（右侧+温度≥温+强度≥%d）" % F["strengthMin"]
         for r, _ in plist:
             pos, pnote = position_advice(r)
+            same = r.get("_same") or 1
+            extra = "（同类%d只·取最强）" % same if same > 1 else ""
             label = pos or "入选"
             color = POS_META.get(pos, ("#3fb950",))[0] if pos else "#3fb950"
-            full_note = (pnote + "；" + note) if pnote else note
+            full_note = (pnote + "；" + note + extra) if pnote else note + extra
             html += card(r, label, color, full_note, pos, full_note,
                          src=sources.get(str(r.get("tmId"))))
         return html
@@ -232,7 +235,10 @@ def main():
     if half_list:
         parts.append('<div class="aline" style="color:#d29922">🟡 半仓止盈：%s —— 温转热·沸触发。</div>' % "、".join(map(esc, half_list)))
     if picks:
-        parts.append('<div class="aline" style="color:#3fb950">✨ 今日推荐基金 %d 只（防守%d·进攻%d）：%s。</div>' % (len(picks), len(picks_defense), len(picks_attack), "、".join(esc(r.get("tickerName", "?")) for r, _ in picks_sorted)))
+        n_shown = len(picks_defense) + len(picks_attack)
+        names = [esc(r.get("tickerName", "?")) for r, _ in picks_sorted]
+        shown = "、".join(names[:8]) + (" 等%d类" % len(names) if len(names) > 8 else "")
+        parts.append('<div class="aline" style="color:#3fb950">✨ 今日推荐基金 %d 类（防守%d·进攻%d，同类归并后）：%s。</div>' % (n_shown, len(picks_defense), len(picks_attack), shown))
     if not parts:
         parts.append('<div class="aline">今日无清仓/全仓/推荐关注触发：持仓按现有仓位运行，左侧品种不抄底。</div>')
     advice_html = "\n".join(parts)

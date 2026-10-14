@@ -11,7 +11,7 @@
 输出: data/<asOfDate>.json（pools + candidates + sources + asOfDate）+ meta.json
 余额不足或接口失败立即终止（不重试付费接口）。
 """
-import json, pathlib, urllib.request, urllib.parse, datetime, sys, time, os
+import json, pathlib, urllib.request, urllib.parse, datetime, sys, time, os, re
 
 BASE = pathlib.Path(__file__).resolve().parent
 CFG = json.loads((BASE / "config.json").read_text(encoding="utf-8"))
@@ -59,23 +59,73 @@ def penetrate(board_id):
     return d.get("data", [])
 
 
+CATEGORY_PATTERNS = [
+    # 顺序敏感：长模式在前，避免子串误匹配（如"港股央企红利"含"央企红利"）
+    ("港股央企红利", ["港股央企红利", "港股通央企红利"]),
+    ("央企红利", ["央企红利"]),
+    ("港股红利", ["港股通高股息", "港股红利", "港股通红利"]),
+    ("红利低波", ["红利低波"]),
+    ("A500红利", ["A500红利"]),
+    ("红利", ["红利", "高股息", "股息"]),
+    ("银行", ["银行"]),
+    ("科创债", ["科创债"]),
+    ("信用债", ["信用债"]),
+    ("公司债", ["公司债"]),
+    ("城投债", ["城投债"]),
+    ("国开债", ["国开债"]),
+    ("地方债", ["地方债"]),
+    ("国债政金债", ["国债", "政金债"]),
+    ("短融", ["短融"]),
+    ("货币", ["货币"]),
+    ("纳指科技", ["纳指科技"]),
+    ("纳斯达克100", ["纳斯达克100", "纳指100"]),
+    ("纳指", ["纳指", "纳斯达克"]),
+    ("标普科技", ["标普信息科技", "标普科技"]),
+    ("美国50", ["美国50"]),
+    ("巴西", ["巴西"]),
+    ("石油油气", ["石油", "油气", "原油"]),
+    ("央企国企", ["央企", "国企"]),
+    ("黄金", ["黄金"]),
+    ("有色", ["有色"]),
+]
+
+
+def category_key(name):
+    """按类别关键词归并同类基金（跟踪同一指数的不同公司产品视为同类）。"""
+    for cat, pats in CATEGORY_PATTERNS:
+        for p in pats:
+            if p in name:
+                return cat
+    n = re.sub(r"(ETF|LOF|基金|联接|增强)", "", name)
+    return n.strip() or name
+
+
 def snapshot_smart(ids):
-    """两段式筛选：先用 preFilterFields（温度前后+强度+节气）粗筛，
-    幸存者再补 candidateFields（行业温度/市值/成交额/价格/右侧/危险信号）。
-    合取条件，粗筛只剔除必然不合格者，无漏判。返回 {tmId: row}。"""
+    """v3.1 基金口径两段式 + 同类归并：粗筛后按类别去重（每类取强度最高者
+    为代表），仅对代表补全字段——避免同质化推荐且大幅降低补全成本。
+    返回 {tmId: row}，row 含 _cat（类别）/ _same（同类只数）自定义字段。"""
     if not ids:
         return {}
     pre = snapshot(ids, CFG["preFilterFields"])
     F = CFG["filters"]
-    survivors = [r["tmId"] for r in pre
+    survivors = [r for r in pre
                  if r.get("isTrendRightSide")
                  and (r.get("trendTemperatureCurr") or "") in F["industryTempAllowed"]
                  and (r.get("trendStrengthLocalCurr") or 0) >= F["strengthMin"]]
     if not survivors:
         return {}
+    groups = {}
+    for r in survivors:
+        groups.setdefault(category_key(r.get("tickerName", "")), []).append(r)
+    reps = []
+    for g in groups.values():
+        best = max(g, key=lambda r: (r.get("trendStrengthLocalCurr") or 0))
+        best["_cat"] = category_key(best.get("tickerName", ""))
+        best["_same"] = len(g)
+        reps.append(best["tmId"])
     pre_by_id = {r["tmId"]: r for r in pre}
     merged = {}
-    for r in snapshot(survivors, CFG["candidateFields"]):
+    for r in snapshot(reps, CFG["candidateFields"]):
         m = dict(pre_by_id.get(r["tmId"], {}))
         m.update(r)
         merged[r["tmId"]] = m

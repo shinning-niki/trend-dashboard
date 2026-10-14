@@ -4,14 +4,14 @@
   "watch": [],
   "boardsDaily": [622485, 452336, 620461],
   "boardsCached": [708048],
-  "boardCacheMaxAgeDays": 14,
+  "boardCacheMaxAgeDays": 21,
   "boardNames": {"622485": "温转热(ETF)", "452336": "历史新高(ETF)", "620461": "立夏(ETF)", "708048": "右侧基金(ETF)"},
   "preFilterFields": ["isTrendRightSide", "trendTemperatureCurr", "trendStrengthLocalCurr"],
   "bigBoardThreshold": 40,
   "poolFields": ["priceIndex", "return1d", "return1w", "return1m", "marketCap", "amount1d", "isTrendRightSide", "trendTemperatureCurr", "trendTemperaturePrev", "trendPhaseCurr", "trendStrengthLocalCurr", "daysSinceTrendEntry", "tickerLabels", "stopwinFlagByDangerSignal", "stopwinFlagByBoilingTemperature"],
   "candidateFields": ["priceIndex", "return1d", "return1w", "return1m", "trendPhaseCurr", "tickerLabels", "stopwinFlagByDangerSignal"],
   "filters": {
-    "strengthMin": 85,
+    "strengthMin": 92,
     "industryTempAllowed": ["温", "热", "沸"],
     "marketCapMin": 0,
     "amount1dMin": 0,
@@ -21,6 +21,7 @@
     "excludeBJ": false
   },
   "defenseKeywords": ["债", "银行", "红利", "货币", "短融"],
-  "disciplineVersion": "v3.0",
-  "note": "v3.0：推荐模块基金化——候选源改为ETF/基金榜（温转热ETF+历史新高ETF+立夏ETF+右侧基金ETF双周缓存），剔除温转热A股个股榜；筛选条件改为基金四条件（右侧+温度≥温+强度≥85），历史新高标签优先排序；推荐区按防守/进攻分层展示。apiKey由环境变量TREND_API_KEY注入，本地回退到config.json。"
+  "maxPerLayer": 15,
+  "disciplineVersion": "v3.1",
+  "note": "v3.1：方案A——强度≥92；右侧基金21天缓存；每层推荐≤15只；同类归并（跟踪同一指数的不同公司产品只推强度最高一只，骄阳10/14指令）。apiKey由环境变量TREND_API_KEY注入，本地回退到config.json。"
 }
