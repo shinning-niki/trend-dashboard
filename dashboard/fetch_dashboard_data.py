@@ -100,10 +100,24 @@ def category_key(name):
     return n.strip() or name
 
 
+def dedupe(rows):
+    """同类归并：跟踪同一指数的不同公司产品每类只留强度最高者。
+    加 _cat（类别）/ _same（同类只数）自定义字段。幂等：已归并数据再归并不变。"""
+    groups = {}
+    for r in rows:
+        groups.setdefault(category_key(r.get("tickerName", "")), []).append(r)
+    out = []
+    for g in groups.values():
+        best = max(g, key=lambda r: (r.get("trendStrengthLocalCurr") or 0))
+        best["_cat"] = category_key(best.get("tickerName", ""))
+        best["_same"] = len(g)
+        out.append(best)
+    return out
+
+
 def snapshot_smart(ids):
     """v3.1 基金口径两段式 + 同类归并：粗筛后按类别去重（每类取强度最高者
-    为代表），仅对代表补全字段——避免同质化推荐且大幅降低补全成本。
-    返回 {tmId: row}，row 含 _cat（类别）/ _same（同类只数）自定义字段。"""
+    为代表），仅对代表补全字段——避免同质化推荐且大幅降低补全成本。"""
     if not ids:
         return {}
     pre = snapshot(ids, CFG["preFilterFields"])
@@ -114,15 +128,7 @@ def snapshot_smart(ids):
                  and (r.get("trendStrengthLocalCurr") or 0) >= F["strengthMin"]]
     if not survivors:
         return {}
-    groups = {}
-    for r in survivors:
-        groups.setdefault(category_key(r.get("tickerName", "")), []).append(r)
-    reps = []
-    for g in groups.values():
-        best = max(g, key=lambda r: (r.get("trendStrengthLocalCurr") or 0))
-        best["_cat"] = category_key(best.get("tickerName", ""))
-        best["_same"] = len(g)
-        reps.append(best["tmId"])
+    reps = [r["tmId"] for r in dedupe(survivors)]
     pre_by_id = {r["tmId"]: r for r in pre}
     merged = {}
     for r in snapshot(reps, CFG["candidateFields"]):
@@ -187,7 +193,7 @@ def main():
             cached_data["sources"] = cached_src
             WEEK_CACHE.write_text(json.dumps(cached_data, ensure_ascii=False),
                                   encoding="utf-8")
-        for row in cached_data.get("rows", []):
+        for row in dedupe(cached_data.get("rows", [])):
             tid = row.get("tmId")
             if tid is None:
                 continue
