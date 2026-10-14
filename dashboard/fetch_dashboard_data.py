@@ -97,18 +97,42 @@ def category_key(name):
     return n.strip() or name
 
 
+def macro_key(cat):
+    """二级大类归并（骄阳10/14指令：每个大类只挑最优秀一只，不全部列出）。"""
+    if "债" in cat:
+        return "债券"
+    if cat in ("红利低波", "A500红利", "央企红利", "港股央企红利", "港股红利", "红利"):
+        return "红利"
+    if "银行" in cat:
+        return "银行"
+    if "货币" in cat or "现金" in cat:
+        return "货币"
+    if cat in ("纳指美股科技", "美股宽基"):
+        return "美股"
+    if cat in ("石油油气", "能源化工"):
+        return "能源"
+    return cat
+
+
 def dedupe(rows):
-    """同类归并：跟踪同一指数的不同公司产品每类只留强度最高者。
-    加 _cat（类别）/ _same（同类只数）自定义字段。幂等：已归并数据再归并不变。"""
-    groups = {}
+    """同类归并（两级）：先按细类（跟踪同一指数）去重，再按大类（债券/红利/
+    银行/货币/美股/能源等资产大类）取强度最高者——每个大类只推一只。
+    加 _cat（大类）/ _same（该大类内品种总数）自定义字段。幂等。"""
+    fine = {}
     for r in rows:
-        groups.setdefault(category_key(r.get("tickerName", "")), []).append(r)
-    out = []
-    for g in groups.values():
+        fine.setdefault(category_key(r.get("tickerName", "")), []).append(r)
+    macro = {}
+    for cat, g in fine.items():
         best = max(g, key=lambda r: (r.get("trendStrengthLocalCurr") or 0))
-        best["_cat"] = category_key(best.get("tickerName", ""))
-        best["_same"] = len(g)
-        out.append(best)
+        best["_fine_cat"] = cat
+        best["_fine_same"] = len(g)
+        macro.setdefault(macro_key(cat), []).append(best)
+    out = []
+    for m, reps in macro.items():
+        champion = max(reps, key=lambda r: (r.get("trendStrengthLocalCurr") or 0))
+        champion["_cat"] = m
+        champion["_same"] = sum(r.get("_fine_same", 1) for r in reps)
+        out.append(champion)
     return out
 
 

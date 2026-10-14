@@ -1,6 +1,6 @@
 {
   "apiKey": "",
-  "held": [445405, 308265, 328248, 328879, 329214, 328141, 331437, 330457, 329476, 691664, 691628],
+  "held": [445405, 308265, 328248, 328879, 329214, 328141, 331437, 329476, 691664, 691628],
   "watch": [],
   "boardsDaily": [622485, 452336, 620461],
   "boardsCached": [708048],
@@ -8,8 +8,8 @@
   "boardNames": {"622485": "温转热(ETF)", "452336": "历史新高(ETF)", "620461": "立夏(ETF)", "708048": "右侧基金(ETF)"},
   "preFilterFields": ["isTrendRightSide", "trendTemperatureCurr", "trendStrengthLocalCurr"],
   "bigBoardThreshold": 40,
-  "poolFields": ["priceIndex", "return1d", "return1w", "return1m", "marketCap", "amount1d", "isTrendRightSide", "trendTemperatureCurr", "trendTemperaturePrev", "trendPhaseCurr", "trendStrengthLocalCurr", "daysSinceTrendEntry", "tickerLabels", "stopwinFlagByDangerSignal", "stopwinFlagByBoilingTemperature"],
-  "candidateFields": ["priceIndex", "return1d", "return1w", "return1m", "trendPhaseCurr", "tickerLabels", "stopwinFlagByDangerSignal"],
+  "poolFields": ["priceIndex", "return1d", "return1w", "return1m", "marketCap", "amount1d", "isTrendRightSide", "trendTemperatureCurr", "trendTemperaturePrev", "trendPhaseCurr", "trendStrengthLocalCurr", "trendStrengthLocalChange", "daysSinceTrendEntry", "tickerLabels", "stopwinFlagByDangerSignal", "stopwinFlagByBoilingTemperature"],
+  "candidateFields": ["priceIndex", "return1d", "return1w", "return1m", "trendPhaseCurr", "trendStrengthLocalChange", "tickerLabels", "stopwinFlagByDangerSignal"],
   "filters": {
     "strengthMin": 92,
     "industryTempAllowed": ["温", "热", "沸"],

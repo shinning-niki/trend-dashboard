@@ -102,10 +102,15 @@ def card(r, sig_label, sig_color, note, pos=None, pos_note=None, src=None):
     if r.get("stopwinFlagByDangerSignal"):
         labels_html += '<span class="tag danger">危险信号</span>'
     strength = r.get("trendStrengthLocalCurr")
+    chg = (r.get("trendStrengthLocalChange") or "").strip()
+    arrow_html = ""
+    if chg:
+        acolor = "#f85149" if "↑" in chg else "#3fb950"
+        arrow_html = ' <span style="color:%s;font-size:18px">%s</span>' % (acolor, esc(chg))
     s_html = ""
     if strength is not None:
         s_html = ('<div class="sbar"><div class="sfill" style="width:%.0f%%"></div></div>'
-                  '<div class="sval">强度 <b>%.1f</b></div>') % (min(strength, 100), strength)
+                  '<div class="sval">强度 <b>%.1f</b>%s</div>') % (min(strength, 100), strength, arrow_html)
     pos_html = ""
     if pos:
         c = POS_META.get(pos, ("#8a8f98", ""))[0]
@@ -113,15 +118,18 @@ def card(r, sig_label, sig_color, note, pos=None, pos_note=None, src=None):
     price = r.get("priceIndex")
     price_html = ("%.3f" % price).rstrip("0").rstrip(".") if isinstance(price, (int, float)) else "—"
     sym = r.get("tickerSymbol") or ""
+    name_html = esc(r.get("tickerName", "?"))
+    if sym:
+        name_html += ' <small style="color:#8b949e;font-weight:400;font-size:12px">%s</small>' % esc(sym)
     return """
       <div class="card" style="border-left-color:%s">
-        <div class="crow1"><span class="name">%s</span><span class="asset">%s %s</span></div>
+        <div class="crow1"><span class="name">%s</span><span class="asset">%s</span></div>
         <div class="crow2"><span class="price">%s</span>
           <span class="rets">日 %s · 周 %s · 月 %s</span>%s</div>
         <div class="crow3">%s%s%s%s%s%s</div>
         %s
         <div class="crow4"><div class="sigtag" style="color:%s">仓位建议：%s</div><div class="note">%s</div></div>
-      </div>""" % (sig_color, esc(r.get("tickerName", "?")), esc(r.get("asset", "")), esc(sym),
+      </div>""" % (sig_color, name_html, esc(r.get("asset", "")),
                     price_html, pct(r.get("return1d")), pct(r.get("return1w")), pct(r.get("return1m")),
                     pos_html, trans_html, temp_html, phase_html, days_html, labels_html, src_html,
                     s_html,
@@ -210,7 +218,7 @@ def main():
         for r, _ in plist:
             pos, pnote = position_advice(r)
             same = r.get("_same") or 1
-            extra = "（同类%d只·取最强）" % same if same > 1 else ""
+            extra = "（该类%d只·挑最强）" % same if same > 1 else ""
             label = pos or "入选"
             color = POS_META.get(pos, ("#3fb950",))[0] if pos else "#3fb950"
             full_note = (pnote + "；" + note + extra) if pnote else note + extra
