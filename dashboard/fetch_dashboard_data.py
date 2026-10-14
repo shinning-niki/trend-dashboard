@@ -99,7 +99,7 @@ def category_key(name):
 
 def macro_key(cat):
     """二级大类归并（骄阳10/14指令：每个大类只挑最优秀一只，不全部列出）。"""
-    if "债" in cat:
+    if "债" in cat or "短融" in cat:
         return "债券"
     if cat in ("红利低波", "A500红利", "央企红利", "港股央企红利", "港股红利", "红利"):
         return "红利"
