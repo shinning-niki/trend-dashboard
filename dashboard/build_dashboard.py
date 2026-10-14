@@ -62,35 +62,15 @@ def base_signal(r):
 
 
 def candidate_check(r):
-    """纪律v2.2 §三：九条件筛选（两段式后验证）。返回 (是否入选, 未满足原因列表)。
-    注意：粗筛已过滤温度/强度/节气，此处验证剩余条件。"""
+    """v3.0 基金四条件筛选。返回 (是否入选, 未满足原因列表)。"""
     fails = []
-    name = r.get("tickerName", "")
-    sym = r.get("tickerSymbol") or ""
-    # 粗筛已保证 prev=温 curr=热 强度>95 节气∈phases，此处复核
-    if not (r.get("trendTemperaturePrev") == "温" and r.get("trendTemperatureCurr") == "热"):
-        fails.append("非温转热·热")
-    if (r.get("trendStrengthLocalCurr") or 0) <= F["strengthMin"]:
-        fails.append("强度%s≤95" % ("%.0f" % (r.get("trendStrengthLocalCurr") or 0)))
-    if (r.get("trendPhaseCurr") or "") not in F["phases"]:
-        fails.append("节气%s" % (r.get("trendPhaseCurr") or "缺失"))
-    # 二段验证：行业温度/市值/成交额/价格
-    if r.get("industryTrendTemperatureCurr") not in F["industryTempAllowed"]:
-        v = r.get("industryTrendTemperatureCurr")
-        fails.append("行业温度%s" % (v if v else "缺失"))
-    mc = r.get("marketCap")
-    if mc is None or mc <= F["marketCapMin"]:
-        fails.append("市值%s" % ("缺失" if mc is None else "%.0f亿≤100" % mc))
-    am = r.get("amount1d")
-    if am is None or am <= F["amount1dMin"]:
-        fails.append("日成交额%s" % ("缺失" if am is None else "%.1f亿≤2" % am))
-    px = r.get("priceIndex")
-    if px is None or px > F["priceMax"]:
-        fails.append("股价%s" % ("缺失" if px is None else "%.1f>500" % px))
-    if F["excludeST"] and "ST" in name.upper():
-        fails.append("ST剔除")
-    if F["excludeBJ"] and sym.endswith(".BJ"):
-        fails.append("北交所剔除")
+    if not r.get("isTrendRightSide"):
+        fails.append("非右侧")
+    temp = r.get("trendTemperatureCurr") or ""
+    if temp not in F["industryTempAllowed"]:
+        fails.append("温度%s" % (temp or "缺失"))
+    if (r.get("trendStrengthLocalCurr") or 0) < F["strengthMin"]:
+        fails.append("强度%.0f<%d" % (r.get("trendStrengthLocalCurr") or 0, F["strengthMin"]))
     return (len(fails) == 0), fails
 
 
@@ -203,19 +183,39 @@ def main():
     held_html = render_pool(held_rows)
     watch_html = render_pool(watch_rows)
 
-    # ---- 推荐模块：九条件筛选
+    # ---- 推荐模块：基金四条件筛选 + 防守/进攻分层
     picks, rejects = [], []
     for r in cands:
         ok, fails = candidate_check(r)
         (picks if ok else rejects).append((r, fails))
-    pick_html = ""
-    for r, _ in sorted(picks, key=lambda x: -(x[0].get("trendStrengthLocalCurr") or 0)):
-        pos, pnote = position_advice(r)
-        label = pos or "入选"
-        color = POS_META.get(pos, ("#3fb950",))[0] if pos else "#3fb950"
-        full_note = (pnote + "；九条件全满足") if pnote else "九条件全满足"
-        pick_html += card(r, label, color, full_note, pos, full_note,
-                          src=sources.get(str(r.get("tmId"))))
+    # 历史新高优先 + 强度排序
+    def sort_key(x):
+        r = x[0]
+        labels = r.get("tickerLabels") or ""
+        has_new_high = 1 if "历史新高" in labels else 0
+        return (has_new_high, -(r.get("trendStrengthLocalCurr") or 0))
+    picks_sorted = sorted(picks, key=sort_key)
+    # 防守/进攻分层
+    defense_kw = CFG.get("defenseKeywords", ["债", "银行", "红利", "货币", "短融"])
+    def is_defense(r):
+        name = r.get("tickerName", "")
+        labels = r.get("tickerLabels") or ""
+        return any(k in name for k in defense_kw) or "红利" in labels
+    picks_defense = [(r, f) for r, f in picks_sorted if is_defense(r)]
+    picks_attack = [(r, f) for r, f in picks_sorted if not is_defense(r)]
+    def render_picks(plist):
+        html = ""
+        note = "基金四条件全满足（右侧+温度≥温+强度≥85）"
+        for r, _ in plist:
+            pos, pnote = position_advice(r)
+            label = pos or "入选"
+            color = POS_META.get(pos, ("#3fb950",))[0] if pos else "#3fb950"
+            full_note = (pnote + "；" + note) if pnote else note
+            html += card(r, label, color, full_note, pos, full_note,
+                         src=sources.get(str(r.get("tmId"))))
+        return html
+    defense_html = render_picks(picks_defense)
+    attack_html = render_picks(picks_attack)
     reject_summary = ""
     if rejects:
         reject_summary = '<div class="rej">未入选 %d 只：%s</div>' % (
@@ -232,7 +232,7 @@ def main():
     if half_list:
         parts.append('<div class="aline" style="color:#d29922">🟡 半仓止盈：%s —— 温转热·沸触发。</div>' % "、".join(map(esc, half_list)))
     if picks:
-        parts.append('<div class="aline" style="color:#3fb950">✨ 今日推荐关注 %d 只：%s（九条件全满足，详见推荐区）。</div>' % (len(picks), "、".join(esc(r.get("tickerName", "?")) for r, _ in picks)))
+        parts.append('<div class="aline" style="color:#3fb950">✨ 今日推荐基金 %d 只（防守%d·进攻%d）：%s。</div>' % (len(picks), len(picks_defense), len(picks_attack), "、".join(esc(r.get("tickerName", "?")) for r, _ in picks_sorted)))
     if not parts:
         parts.append('<div class="aline">今日无清仓/全仓/推荐关注触发：持仓按现有仓位运行，左侧品种不抄底。</div>')
     advice_html = "\n".join(parts)
@@ -241,9 +241,8 @@ def main():
 
     sections = (
         section("📌 我的持仓（%d）" % len(held_rows), "#e6edf3", held_html) +
-        section("👁 机会监测（%d）" % len(watch_rows), "#e3b341", watch_html) +
-        section("✨ 今日推荐关注（多榜单·九条件筛选，入选 %d/%d）" % (len(picks), len(cands)),
-                "#3fb950", pick_html, "") +
+        section("🛡️ 稳健基金推荐（防守类·低回撤，入选 %d/%d）" % (len(picks_defense), len(cands)), "#58a6ff", defense_html) +
+        section("⚡ 机会基金推荐（进攻类·弹性，入选 %d/%d）" % (len(picks_attack), len(cands)), "#3fb950", attack_html) +
         reject_summary
     )
 
@@ -261,8 +260,8 @@ def main():
 
     out = DIST_DIR / "index.html"
     out.write_text(html_doc, encoding="utf-8")
-    print("built %s asOf=%s held=%d watch=%d cand=%d picks=%d"
-          % (out, as_of, len(held_rows), len(watch_rows), len(cands), len(picks)))
+    print("built %s asOf=%s held=%d cand=%d picks=%d(defense=%d attack=%d)"
+          % (out, as_of, len(held_rows), len(cands), len(picks), len(picks_defense), len(picks_attack)))
 
 
 TEMPLATE = """<!DOCTYPE html>
@@ -347,7 +346,7 @@ TEMPLATE = """<!DOCTYPE html>
   %%SECTIONS%%
 
   <footer>
-    数据源：趋势动物 API。行情与趋势指标为接口直接返回；仓位建议按纪律 %%DISC%%（骄阳定制）机械判定：危险信号/温转平→清仓，温转热·热→全仓，温转热·沸→半仓止盈；推荐模块为温转热榜单成分经九条件筛选（行业温度≥温），未入选原因已标注。<br>
+    数据源：趋势动物 API。行情与趋势指标为接口直接返回；仓位建议按纪律 %%DISC%%（骄阳定制）机械判定：危险信号/温转平→清仓，温转热·热→全仓，温转热·沸→半仓止盈；推荐模块为ETF/基金榜单成分经基金四条件筛选（右侧+温度≥温+强度≥85），历史新高标签优先排序，按防守/进攻分层展示。<br>
     趋势动物指标仅供趋势交易研究与纪律执行参考，不构成投资建议或收益承诺。市场有风险，盈亏自负。
   </footer>
 </div>

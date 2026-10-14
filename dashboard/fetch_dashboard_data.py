@@ -68,10 +68,9 @@ def snapshot_smart(ids):
     pre = snapshot(ids, CFG["preFilterFields"])
     F = CFG["filters"]
     survivors = [r["tmId"] for r in pre
-                 if (r.get("trendTemperaturePrev") == "温"
-                     and r.get("trendTemperatureCurr") == "热"
-                     and (r.get("trendStrengthLocalCurr") or 0) > F["strengthMin"]
-                     and (r.get("trendPhaseCurr") or "") in F["phases"])]
+                 if r.get("isTrendRightSide")
+                 and (r.get("trendTemperatureCurr") or "") in F["industryTempAllowed"]
+                 and (r.get("trendStrengthLocalCurr") or 0) >= F["strengthMin"]]
     if not survivors:
         return {}
     pre_by_id = {r["tmId"]: r for r in pre}
