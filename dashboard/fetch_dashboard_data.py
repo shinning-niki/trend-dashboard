@@ -205,7 +205,7 @@ def main():
                     sources[str(tid)].append(nm)
 
     bal1 = balance()
-    cand_list = list(candidates.values())
+    cand_list = dedupe(list(candidates.values()))
     as_of = "unknown"
     for src in (pools, cand_list):
         if src and src[0].get("asOfDate"):
