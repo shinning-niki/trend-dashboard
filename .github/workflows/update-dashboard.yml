@@ -2,8 +2,11 @@ name: Update Trend Dashboard
 
 on:
   schedule:
-    # UTC 12:00 = Beijing 20:00，仅周一至周五（1-5）；周末A股/ETF不开盘，数据不变，跳过省API费用
-    - cron: '0 12 * * 1-5'
+    # UTC 15:00 = Beijing 23:00，仅周一至周五（1-5）。
+    # 推迟到 23:00 是因为 20:00 时趋势动物接口当日数据尚未更新（A 股 15:00 收盘后需清洗时间），
+    # 提早跑批 asOfDate 会停留在昨天，Bark push step 会判定"数据未更新到当天"而不推送——白跑。
+    # 周末不开盘跳过省 API 费用。
+    - cron: '0 15 * * 1-5'
   # 允许手动触发（含周末，用于紧急更新）
   workflow_dispatch:
 
@@ -80,3 +83,66 @@ jobs:
             echo "Build FAILED" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
+
+      - name: Bark Push (only when asOfDate = today)
+        # 关键：先校验 asOfDate 是否为当天。数据未更新到当天 → 静默不推（骄阳指令："没意义就别推"）。
+        # 失败也不推（fetch/build 失败时 meta.json 可能不存在或缺字段，自然不进推送分支）。
+        if: ${{ success() }}
+        env:
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+        run: |
+          set -eu
+          if [ -z "${BARK_KEY}" ]; then
+            echo "BARK_KEY secret 未配置，跳过推送"
+            exit 0
+          fi
+          if [ ! -f dashboard/meta.json ]; then
+            echo "meta.json 不存在（fetch 未完成？），跳过推送"
+            exit 0
+          fi
+
+          python3 <<'PY'
+          import json, os, sys, urllib.request, urllib.parse, datetime
+
+          meta = json.loads(open("dashboard/meta.json", encoding="utf-8").read())
+          as_of = meta.get("asOfDate", "")
+          pools = meta.get("pools", 0)
+          cand = meta.get("cand", 0)
+          cost = meta.get("cost", 0)
+          bal = meta.get("balance", 0)
+
+          # 北京时间今天的日期（runner 默认 UTC，需要手动 +8）
+          now_bj = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
+          today_bj = now_bj.strftime("%Y-%m-%d")
+          print(f"asOfDate={as_of}  today(BJ)={today_bj}")
+
+          if as_of != today_bj:
+              print(f"⏸ 数据未更新到当天（asOf={as_of} != today={today_bj}），静默不推")
+              sys.exit(0)
+
+          # 已是当天 → 推送
+          key = os.environ["BARK_KEY"]
+          url = f"https://api.day.app/{key}"
+          body = (
+              f"日期 {as_of}\n"
+              f"持仓 {pools} · 推荐 {cand}\n"
+              f"本次成本 ¥{cost} · 余额 ¥{bal}\n"
+              f"shinning-niki.github.io/trend-dashboard"
+          )
+          payload = {
+              "title": "📈 趋势看版已更新",
+              "body": body,
+              "group": "trend-dashboard",
+              "ttl": 600,
+              "url": "https://shinning-niki.github.io/trend-dashboard/",
+          }
+          data = urllib.parse.urlencode(payload).encode("utf-8")
+          req = urllib.request.Request(url, data=data, method="POST")
+          try:
+              with urllib.request.urlopen(req, timeout=15) as r:
+                  resp = r.read().decode("utf-8", errors="ignore")
+              print(f"Bark 推送成功: {resp[:200]}")
+          except Exception as e:
+              print(f"Bark 推送失败: {e}")
+              sys.exit(0)  # 推送失败不阻断主流程
+          PY
