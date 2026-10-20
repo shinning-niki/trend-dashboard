@@ -240,7 +240,11 @@ def main():
     (BASE / "data" / ("%s.json" % as_of)).write_text(
         json.dumps(out, ensure_ascii=False), encoding="utf-8")
 
-    meta = {"cost": round(bal0 - bal1, 3), "balance": round(bal1, 3),
+    meta = {"asOfDate": as_of,
+            "pools": len(pools),
+            "cand": len(cand_list),
+            "cost": round(bal0 - bal1, 3),
+            "balance": round(bal1, 3),
             "generatedAt": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
     (BASE / "meta.json").write_text(json.dumps(meta, ensure_ascii=False),
                                     encoding="utf-8")
