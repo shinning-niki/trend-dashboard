@@ -2,12 +2,12 @@ name: Update Trend Dashboard
 
 on:
   schedule:
-    # UTC 11,12,13,14,15 = Beijing 19,20,21,22,23 共 5 次轮询，仅周一至周五（1-5）。
-    # 设计：每天从 19:00 开始每 1 小时主动查一次"接口数据是否更新到当天"，
-    # 是当天 + 今天没推过 → 跑完整 fetch+build+push+写 marker；否则 0 成本跳过。
-    # 接口数据更新时间不稳定（19:00-23:00 之间任一时间点），轮询避免干等到 23:00。
+    # UTC 11:30 = 北京 19:30，仅周一至周五（1-5），单次触发。
+    # 不用整点 0 分（高负载时段 GitHub Actions 会合并/延迟多次 cron）。
+    # workflow 内部 should_run step 用 retry 循环每 30 分钟查一次 getUpdateStatus，
+    # 接口数据更新到当天就立即跑 fetch+push；最多重试到北京 23:00（8 次重试）。
     # 周末不开盘跳过省 API 费用。
-    - cron: '0 11,12,13,14,15 * * 1-5'
+    - cron: '30 11 * * 1-5'
   # 允许手动触发（含周末，用于紧急更新）
   workflow_dispatch:
 
@@ -41,11 +41,11 @@ jobs:
           restore-keys: |
             push-marker-
 
-      - name: Should run today? (skip if already pushed OR data not yet updated)
-        # 主动轮询：先调免费的 getUpdateStatus 看接口数据是否已更新到当天。
-        # 接口未更新 → skip=true，所有付费 step 都跳过（0 成本）；
-        # 接口已更新 + 今天没推过 → 继续 fetch+build+push；
-        # 接口已更新 + 今天已推过 → 也跳过（防重复推送）。
+      - name: Should run today? (poll until data is updated, retry 8x every 30min)
+        # 主动轮询：19:30 cron 触发后，本 step 每 30 分钟查一次 getUpdateStatus，最多重试 8 次（到 23:30）。
+        # 任一次查到 asOfDate == today(BJ) → break，继续 fetch+build+push+写 marker；
+        # 全部 8 次都没查到 → skip=true，0 成本跳过所有付费 step。
+        # 单次外部 cron + 内部 retry 比 5 次外部 cron 可靠——避开 GitHub Actions 整点合并问题。
         id: should_run
         env:
           TREND_API_KEY: ${{ secrets.TREND_API_KEY }}
@@ -54,46 +54,51 @@ jobs:
           TODAY=$(TZ=Asia/Shanghai date +%Y-%m-%d)
           echo "today(BJ)=$TODAY"
 
-          # 1. 今天已推过就跳过
+          # 1. 今天已推过就跳过（cache 读 .push-marker）
           if [ -f .push-marker ] && [ "$(cat .push-marker)" = "$TODAY" ]; then
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "🟡 今天 $TODAY 已推过，跳过"
             exit 0
           fi
 
-          # 2. 调 getUpdateStatus 看接口是否更新到当天
+          # 2. 轮询 getUpdateStatus，每 30 分钟查一次，最多 8 次（19:30→23:30）
           if [ -z "${TREND_API_KEY}" ]; then
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "TREND_API_KEY 未配置，跳过"
             exit 0
           fi
-          RESP=$(curl -sS --max-time 15 \
-            "https://www.trendtrader.cn/apiData/data/getUpdateStatus?apiKey=${TREND_API_KEY}" \
-            -H "User-Agent: trend-dashboard/should-run")
-          echo "getUpdateStatus raw: $RESP" | head -c 500
-          echo ""
-          ASOF=$(echo "$RESP" | python3 -c "
+
+          for i in 1 2 3 4 5 6 7 8; do
+            RESP=$(curl -sS --max-time 15 \
+              "https://www.trendtrader.cn/apiData/data/getUpdateStatus?apiKey=${TREND_API_KEY}" \
+              -H "User-Agent: trend-dashboard/should-run")
+            ASOF=$(echo "$RESP" | python3 -c "
           import sys, json
           try:
               d = json.load(sys.stdin)
               data = d.get('data') or {}
               if isinstance(data, list) and data:
                   data = data[0]
-              # 容错多种字段名（asOfDate / asOf / updateDate / date）
               asof = (data.get('asOfDate') or data.get('asOf')
                       or data.get('updateDate') or data.get('date') or '')
               print(asof)
           except Exception:
               print('')
           ")
-          echo "接口 asOf=$ASOF"
-          if [ "$ASOF" != "$TODAY" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "⏸ 接口数据未更新到当天（asOf=$ASOF != today=$TODAY），跳过"
-            exit 0
-          fi
-          echo "skip=false" >> $GITHUB_OUTPUT
-          echo "✅ 接口已更新到当天，继续 fetch+build+push"
+            NOW=$(TZ=Asia/Shanghai date "+%H:%M")
+            echo "[$i/8 $NOW BJ] 接口 asOf=$ASOF"
+            if [ "$ASOF" = "$TODAY" ]; then
+              echo "✅ 接口已更新到当天，继续 fetch+build+push"
+              echo "skip=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            if [ $i -lt 8 ]; then
+              echo "⏸ 接口未更新到当天，sleep 30 分钟后再查"
+              sleep 1800
+            fi
+          done
+          echo "⏸ 重试 8 次仍未更新到当天，跳过"
+          echo "skip=true" >> $GITHUB_OUTPUT
 
       - name: Cache weekly boards
         if: steps.should_run.outputs.skip != 'true'
