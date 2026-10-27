@@ -2,12 +2,14 @@ name: Update Trend Dashboard
 
 on:
   schedule:
-    # UTC 11:30 = 北京 19:30，仅周一至周五（1-5），单次触发。
-    # 不用整点 0 分（高负载时段 GitHub Actions 会合并/延迟多次 cron）。
-    # workflow 内部 should_run step 用 retry 循环每 30 分钟查一次 getUpdateStatus，
-    # 接口数据更新到当天就立即跑 fetch+push；最多重试到北京 23:00（8 次重试）。
+    # 北京 19:30 / 20:30 / 21:30 共 3 次触发（UTC 11:30 / 12:30 / 13:30）
+    # 用非整点（30 分）避开 GitHub Actions 整点高负载合并问题。
+    # 多次触发 + cache push-marker 防重推：第一个能准时跑的 cron 推送+写 marker，
+    # 后续 cron 触发时读 marker=今天 → skip=true → 0 成本跳过。
+    # 即使某次 cron 严重延迟到凌晨跨日，should_run 也只检查 marker 防重推，
+    # fetch+build+deploy 仍会跑（看板更新到最新交易日数据），只是 Bark 不推（asOf != today）。
     # 周末不开盘跳过省 API 费用。
-    - cron: '30 11 * * 1-5'
+    - cron: '30 11,12,13 * * 1-5'
   # 允许手动触发（含周末，用于紧急更新）
   workflow_dispatch:
 
@@ -33,7 +35,6 @@ jobs:
 
       - name: Cache push marker
         # 缓存 .push-marker 文件，记录"今天已推过"日期，防止同一天多次 cron 触发重复推送。
-        # cache key 按日期，同一天多次 run 共享同一 cache；新一天会 miss 但 restore-keys 找到前一天的（不影响逻辑，should_run 用 today 比对）。
         uses: actions/cache@v4
         with:
           path: .push-marker
@@ -41,64 +42,23 @@ jobs:
           restore-keys: |
             push-marker-
 
-      - name: Should run today? (poll until data is updated, retry 8x every 30min)
-        # 主动轮询：19:30 cron 触发后，本 step 每 30 分钟查一次 getUpdateStatus，最多重试 8 次（到 23:30）。
-        # 任一次查到 asOfDate == today(BJ) → break，继续 fetch+build+push+写 marker；
-        # 全部 8 次都没查到 → skip=true，0 成本跳过所有付费 step。
-        # 单次外部 cron + 内部 retry 比 5 次外部 cron 可靠——避开 GitHub Actions 整点合并问题。
+      - name: Should fetch? (skip only if today already pushed)
+        # 简化逻辑：只检查 cache push-marker 防重推。
+        # 今天已推过 → skip=true（后续付费 step 全跳过，0 成本）；
+        # 今天没推过 → skip=false（fetch+build+deploy 总是跑，看板总是更新到最新交易日数据）。
+        # Bark Push step 自己判断 asOf == today(BJ) 才推（避免跨日凌晨误推）。
         id: should_run
-        env:
-          TREND_API_KEY: ${{ secrets.TREND_API_KEY }}
         run: |
           set -eu
           TODAY=$(TZ=Asia/Shanghai date +%Y-%m-%d)
           echo "today(BJ)=$TODAY"
-
-          # 1. 今天已推过就跳过（cache 读 .push-marker）
           if [ -f .push-marker ] && [ "$(cat .push-marker)" = "$TODAY" ]; then
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "🟡 今天 $TODAY 已推过，跳过"
-            exit 0
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "✅ 今天 $TODAY 未推过，继续 fetch+build+deploy"
           fi
-
-          # 2. 轮询 getUpdateStatus，每 30 分钟查一次，最多 8 次（19:30→23:30）
-          if [ -z "${TREND_API_KEY}" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "TREND_API_KEY 未配置，跳过"
-            exit 0
-          fi
-
-          for i in 1 2 3 4 5 6 7 8; do
-            RESP=$(curl -sS --max-time 15 \
-              "https://www.trendtrader.cn/apiData/data/getUpdateStatus?apiKey=${TREND_API_KEY}" \
-              -H "User-Agent: trend-dashboard/should-run")
-            ASOF=$(echo "$RESP" | python3 -c "
-          import sys, json
-          try:
-              d = json.load(sys.stdin)
-              data = d.get('data') or {}
-              if isinstance(data, list) and data:
-                  data = data[0]
-              asof = (data.get('asOfDate') or data.get('asOf')
-                      or data.get('updateDate') or data.get('date') or '')
-              print(asof)
-          except Exception:
-              print('')
-          ")
-            NOW=$(TZ=Asia/Shanghai date "+%H:%M")
-            echo "[$i/8 $NOW BJ] 接口 asOf=$ASOF"
-            if [ "$ASOF" = "$TODAY" ]; then
-              echo "✅ 接口已更新到当天，继续 fetch+build+push"
-              echo "skip=false" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-            if [ $i -lt 8 ]; then
-              echo "⏸ 接口未更新到当天，sleep 30 分钟后再查"
-              sleep 1800
-            fi
-          done
-          echo "⏸ 重试 8 次仍未更新到当天，跳过"
-          echo "skip=true" >> $GITHUB_OUTPUT
 
       - name: Cache weekly boards
         if: steps.should_run.outputs.skip != 'true'
@@ -161,10 +121,9 @@ jobs:
             echo "Build skipped or FAILED" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Bark Push (only when asOfDate = today)
-        # 关键：先校验 meta.json 的 asOfDate 是否为当天。数据未更新到当天 → 静默不推（骄阳指令："没意义就别推"）。
-        # 失败也不推（fetch/build 失败时 meta.json 可能不存在或缺字段，自然不进推送分支）。
-        # 推送成功后写 .push-marker 文件，cache 会自动保存，防同一天后续 cron 触发重复推送。
+      - name: Bark Push (only when asOfDate = today BJ)
+        # 推送判定：asOfDate == today(BJ) 才推（避免 cron 跨日凌晨触发时推送错误日期的数据）。
+        # 失败也不推。推送成功后写 .push-marker=today，cache 自动保存，防同一天后续 cron 重复推送。
         if: ${{ success() && steps.should_run.outputs.skip != 'true' }}
         env:
           BARK_KEY: ${{ secrets.BARK_KEY }}
@@ -189,16 +148,14 @@ jobs:
           cost = meta.get("cost", 0)
           bal = meta.get("balance", 0)
 
-          # 北京时间今天的日期（runner 默认 UTC，需要手动 +8）
           now_bj = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
           today_bj = now_bj.strftime("%Y-%m-%d")
           print(f"asOfDate={as_of}  today(BJ)={today_bj}")
 
           if as_of != today_bj:
-              print(f"⏸ 数据未更新到当天（asOf={as_of} != today={today_bj}），静默不推")
+              print(f"⏸ asOf != today(BJ)（可能是 cron 跨日凌晨触发），看板已更新到 {as_of} 但不推 Bark")
               sys.exit(0)
 
-          # 已是当天 → 推送
           key = os.environ["BARK_KEY"]
           url = f"https://api.day.app/{key}"
           body = (
@@ -220,12 +177,11 @@ jobs:
               with urllib.request.urlopen(req, timeout=15) as r:
                   resp = r.read().decode("utf-8", errors="ignore")
               print(f"Bark 推送成功: {resp[:200]}")
-              # 推送成功后写 marker，防同一天后续 cron 触发重复推送
               today = now_bj.strftime("%Y-%m-%d")
               with open(".push-marker", "w") as f:
                   f.write(today)
               print(f"已写 .push-marker={today}（cache 会自动保存）")
           except Exception as e:
               print(f"Bark 推送失败: {e}")
-              sys.exit(0)  # 推送失败不阻断主流程
+              sys.exit(0)
           PY
