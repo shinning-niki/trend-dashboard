@@ -21,9 +21,11 @@ WEEK_CACHE = BASE / "data" / "_weekly_boards.json"
 
 
 def call(endpoint, **params):
-    qs = urllib.parse.urlencode({"apiKey": KEY, **params})
+    # 加 _t 时间戳参数（cache-buster），尝试绕过 API 端可能的缓存层
+    qs = urllib.parse.urlencode({"apiKey": KEY, "_t": int(time.time()), **params})
     req = urllib.request.Request(API + endpoint + "?" + qs,
-                                 headers={"User-Agent": "trend-dashboard/2.2"})
+                                 headers={"User-Agent": "trend-dashboard/2.2",
+                                          "Cache-Control": "no-cache"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read().decode("utf-8"))
 
