@@ -171,9 +171,17 @@ def main():
 
     status = call("getUpdateStatus")
     must_ok(status, "getUpdateStatus")
+    # 诊断：打印 getUpdateStatus 完整返回，确认接口真实 asOfDate 和 updateDt
+    print("DIAG getUpdateStatus: %s" % json.dumps(status, ensure_ascii=False)[:800])
     bal0 = balance()
 
     pools = snapshot(held + watch, CFG["poolFields"]) if (held or watch) else []
+    # 诊断：打印持仓快照的 asOfDate
+    if pools:
+        print("DIAG pools[0] asOfDate=%s tickerName=%s" % (
+            pools[0].get("asOfDate"), pools[0].get("tickerName")))
+    else:
+        print("DIAG pools 为空！getTickerSnapshot 可能返回了空数据")
 
     # ---- 日频榜：穿透→合并去重→智能快照
     daily_ids, sources = [], {}
