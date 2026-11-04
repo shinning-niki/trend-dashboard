@@ -176,6 +176,7 @@ def main():
     # 诊断：打印 getUpdateStatus 完整返回，确认接口真实 asOfDate 和 updateDt
     print("DIAG getUpdateStatus: %s" % json.dumps(status, ensure_ascii=False)[:800])
     bal0 = balance()
+    print("DIAG balance=%.3f" % bal0)
 
     pools = snapshot(held + watch, CFG["poolFields"]) if (held or watch) else []
     # 诊断：打印持仓快照的 asOfDate 及完整字段（查 API 返回结构是否变化）
@@ -242,11 +243,12 @@ def main():
 
     bal1 = balance()
     cand_list = dedupe(list(candidates.values()))
+    # 取所有数据中最大的 asOfDate（避免单只 ticker 缓存未刷新导致整体 asOf 停在旧日期）
     as_of = "unknown"
-    for src in (pools, cand_list):
-        if src and src[0].get("asOfDate"):
-            as_of = src[0]["asOfDate"]
-            break
+    all_dates = sorted({r.get("asOfDate") for r in pools + cand_list
+                        if r.get("asOfDate")})
+    if all_dates:
+        as_of = all_dates[-1]  # 取最新日期
 
     out = {"asOfDate": as_of, "discipline": CFG["disciplineVersion"],
            "heldIds": held, "watchIds": watch,
