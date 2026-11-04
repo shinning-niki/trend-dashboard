@@ -178,10 +178,15 @@ def main():
     bal0 = balance()
 
     pools = snapshot(held + watch, CFG["poolFields"]) if (held or watch) else []
-    # 诊断：打印持仓快照的 asOfDate
+    # 诊断：打印持仓快照的 asOfDate 及完整字段（查 API 返回结构是否变化）
     if pools:
         print("DIAG pools[0] asOfDate=%s tickerName=%s" % (
             pools[0].get("asOfDate"), pools[0].get("tickerName")))
+        # 打印所有日期类字段
+        date_fields = {k: v for k, v in pools[0].items() if "date" in k.lower() or "asof" in k.lower() or "update" in k.lower() or "Dt" in k}
+        print("DIAG pools[0] date_fields=%s" % json.dumps(date_fields, ensure_ascii=False))
+        # 打印完整 keys
+        print("DIAG pools[0] keys=%s" % list(pools[0].keys()))
     else:
         print("DIAG pools 为空！getTickerSnapshot 可能返回了空数据")
 
