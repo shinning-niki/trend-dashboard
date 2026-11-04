@@ -192,8 +192,16 @@ def main():
     watch_html = render_pool(watch_rows)
 
     # ---- 推荐模块：基金四条件筛选 + 防守/进攻分层
+    # 排除规则：①已持仓的不重复推荐 ②骄阳不买的品类（货币等）排除
+    held_id_set = set(held_ids)
+    exclude_kw = CFG.get("excludeFromCandidates", [])
     picks, rejects = [], []
     for r in cands:
+        if r.get("tmId") in held_id_set:
+            continue  # 已持仓不重复推荐
+        name = r.get("tickerName", "")
+        if any(k in name for k in exclude_kw):
+            continue  # 骄阳不买的品类（货币等）
         ok, fails = candidate_check(r)
         (picks if ok else rejects).append((r, fails))
     # 历史新高优先 + 强度排序
@@ -204,7 +212,7 @@ def main():
         return (has_new_high, -(r.get("trendStrengthLocalCurr") or 0))
     picks_sorted = sorted(picks, key=sort_key)
     # 防守/进攻分层
-    defense_kw = CFG.get("defenseKeywords", ["债", "银行", "红利", "货币", "短融"])
+    defense_kw = CFG.get("defenseKeywords", ["债", "银行", "红利", "短融"])
     def is_defense(r):
         name = r.get("tickerName", "")
         labels = r.get("tickerLabels") or ""
