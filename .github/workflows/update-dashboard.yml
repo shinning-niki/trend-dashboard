@@ -4,10 +4,8 @@ on:
   schedule:
     # 北京 19:30 / 20:30 / 21:30 共 3 次触发（UTC 11:30 / 12:30 / 13:30）
     # 用非整点（30 分）避开 GitHub Actions 整点高负载合并问题。
-    # 多次触发 + cache push-marker 防重推：第一个能准时跑的 cron 推送+写 marker，
-    # 后续 cron 触发时读 marker=今天 → skip=true → 0 成本跳过。
-    # 即使某次 cron 严重延迟到凌晨跨日，should_run 也只检查 marker 防重推，
-    # fetch+build+deploy 仍会跑（看板更新到最新交易日数据），只是 Bark 不推（asOf != today）。
+    # GitHub Actions 公开仓库 cron 严重延迟（高峰期延迟 6-9 小时甚至跳过），
+    # 即使延迟到凌晨跨日，Bark Push 现在用 asOfDate 比较逻辑也能正确推送。
     # 周末不开盘跳过省 API 费用。
     - cron: '30 11,12,13 * * 1-5'
   # 允许手动触发（含周末，用于紧急更新）
@@ -34,7 +32,8 @@ jobs:
           python-version: '3.13'
 
       - name: Cache push marker
-        # 缓存 .push-marker 文件，记录"今天已推过"日期，防止同一天多次 cron 触发重复推送。
+        # .push-marker 记录上次推送的 asOfDate（不是 today）
+        # Bark Push step 比较 asOf > last_pushed 才推
         uses: actions/cache@v4
         with:
           path: .push-marker
@@ -42,23 +41,13 @@ jobs:
           restore-keys: |
             push-marker-
 
-      - name: Should fetch? (skip only if today already pushed)
-        # 简化逻辑：只检查 cache push-marker 防重推。
-        # 今天已推过 → skip=true（后续付费 step 全跳过，0 成本）；
-        # 今天没推过 → skip=false（fetch+build+deploy 总是跑，看板总是更新到最新交易日数据）。
-        # Bark Push step 自己判断 asOf == today(BJ) 才推（避免跨日凌晨误推）。
+      - name: Should fetch? (always run unless skip flag set)
+        # fetch 总是跑，确保看板总更新到最新交易日数据
+        # 真正的去重判定在 Bark Push step（基于 asOfDate 比较）
         id: should_run
         run: |
-          set -eu
-          TODAY=$(TZ=Asia/Shanghai date +%Y-%m-%d)
-          echo "today(BJ)=$TODAY"
-          if [ -f .push-marker ] && [ "$(cat .push-marker)" = "$TODAY" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "🟡 今天 $TODAY 已推过，跳过"
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-            echo "✅ 今天 $TODAY 未推过，继续 fetch+build+deploy"
-          fi
+          echo "skip=false" >> $GITHUB_OUTPUT
+          echo "✅ 继续访+build+deploy（去重判定在 Bark Push step）"
 
       - name: Cache weekly boards
         if: steps.should_run.outputs.skip != 'true'
@@ -121,9 +110,12 @@ jobs:
             echo "Build skipped or FAILED" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Bark Push (only when asOfDate = today BJ)
-        # 推送判定：asOfDate == today(BJ) 才推（避免 cron 跨日凌晨触发时推送错误日期的数据）。
-        # 失败也不推。推送成功后写 .push-marker=today，cache 自动保存，防同一天后续 cron 重复推送。
+      - name: Bark Push (when asOfDate newer than last pushed)
+        # 推送判定：asOfDate > .push-marker(上次推送的 asOfDate) 才推
+        # 这解决了 GitHub Actions cron 凌晨跨日触发的问题：
+        #   - 凌晨跨日触发：asOf=11/5（昨天），marker=11/4（前天），asOf>marker → 推送 ✅
+        #   - 同一天重复 cro​​en：asOf 不变，marker==asOf → 跳过 ✅
+        #   - 接口没更新：asOf 还是昨天的，marker 也是昨天的 → 跳过 ✅
         if: ${{ success() && steps.should_run.outputs.skip != 'true' }}
         env:
           BARK_KEY: ${{ secrets.BARK_KEY }}
@@ -148,12 +140,22 @@ jobs:
           cost = meta.get("cost", 0)
           bal = meta.get("balance", 0)
 
-          now_bj = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
-          today_bj = now_bj.strftime("%Y-%m-%d")
-          print(f"asOfDate={as_of}  today(BJ)={today_bj}")
+          # 读上次推送的 asOfDate（marker 文件存的是 asOfDate，不是 today）
+          last_pushed = ""
+          try:
+              with open(".push-marker") as f:
+                  last_pushed = f.read().strip()
+          except FileNotFoundError:
+              pass
 
-          if as_of != today_bj:
-              print(f"⏸ asOf != today(BJ)（可能是 cron 跨日凌晨触发），看板已更新到 {as_of} 但不推 Bark")
+          now_bj = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
+          print(f"asOfDate={as_of}  last_pushed={last_pushed}  now(BJ)={now_bj.strftime('%Y-%m-%d %H:%M')}")
+
+          if not as_of:
+              print("⏸ asOfDate 为空，跳过推送")
+              sys.exit(0)
+          if last_pushed and as_of <= last_pushed:
+              print(f"⏸ asOf({as_of}) <= last_pushed({last_pushed})，已推过这个数据日期，跳过")
               sys.exit(0)
 
           key = os.environ["BARK_KEY"]
@@ -177,10 +179,10 @@ jobs:
               with urllib.request.urlopen(req, timeout=15) as r:
                   resp = r.read().decode("utf-8", errors="ignore")
               print(f"Bark 推送成功: {resp[:200]}")
-              today = now_bj.strftime("%Y-%m-%d")
+              # marker 写入本次推送的 asOfDate（不是 today）
               with open(".push-marker", "w") as f:
-                  f.write(today)
-              print(f"已写 .push-marker={today}（cache 会自动保存）")
+                  f.write(as_of)
+              print(f"已写 .push-marker={as_of}（cache 会自动保存）")
           except Exception as e:
               print(f"Bark 推送失败: {e}")
               sys.exit(0)
