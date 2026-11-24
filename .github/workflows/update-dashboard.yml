@@ -68,16 +68,9 @@ jobs:
         if: steps.should_run.outputs.skip != 'true'
         run: python dashboard/build_dashboard.py
 
-      - name: Upload Pages artifact
-        if: steps.should_run.outputs.skip != 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dashboard/dist
-
-      - name: Deploy to GitHub Pages
-        if: steps.should_run.outputs.skip != 'true'
-        id: deployment
-        uses: actions/deploy-pages@v4
+      # === 关键：cloudstudio push + Bark push 移到 deploy-pages 之前 ===
+      # 这样即使 GitHub Pages 服务端故障（githubstatus.com issues），
+      # cloudstudio 备份链接和 Bark 推送仍然能正常完成。
 
       - name: Push dist to cloudstudio branch (for WorkBuddy auto-deploy)
         if: steps.should_run.outputs.skip != 'true'
@@ -97,26 +90,13 @@ jobs:
           git commit -m "deploy: $(date -u +%Y-%m-%d)" || echo "nothing to commit"
           git push origin cloudstudio --force
 
-      - name: Report
-        if: always()
-        run: |
-          echo "## Dashboard Update Report" >> $GITHUB_STEP_SUMMARY
-          if [ -f dashboard/meta.json ]; then
-            echo "$(cat dashboard/meta.json)" >> $GITHUB_STEP_SUMMARY
-          fi
-          if [ -f dashboard/dist/index.html ]; then
-            echo "Build OK" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Build skipped or FAILED" >> $GITHUB_STEP_SUMMARY
-          fi
-
       - name: Bark Push (when asOfDate newer than last pushed)
         # 推送判定：asOfDate > .push-marker(上次推送的 asOfDate) 才推
         # 这解决了 GitHub Actions cron 凌晨跨日触发的问题：
         #   - 凌晨跨日触发：asOf=11/5（昨天），marker=11/4（前天），asOf>marker → 推送 ✅
-        #   - 同一天重复 cro​​en：asOf 不变，marker==asOf → 跳过 ✅
+        #   - 同一天重复 cron：asOf 不变，marker==asOf → 跳过 ✅
         #   - 接口没更新：asOf 还是昨天的，marker 也是昨天的 → 跳过 ✅
-        if: ${{ success() && steps.should_run.outputs.skip != 'true' }}
+        if: always() && steps.should_run.outputs.skip != 'true'
         env:
           BARK_KEY: ${{ secrets.BARK_KEY }}
         run: |
@@ -187,3 +167,30 @@ jobs:
               print(f"Bark 推送失败: {e}")
               sys.exit(0)
           PY
+
+      - name: Report
+        if: always()
+        run: |
+          echo "## Dashboard Update Report" >> $GITHUB_STEP_SUMMARY
+          if [ -f dashboard/meta.json ]; then
+            echo "$(cat dashboard/meta.json)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f dashboard/dist/index.html ]; then
+            echo "Build OK" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Build skipped or FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # === GitHub Pages 部署放最后，失败不影响 cloudstudio/bark ===
+      - name: Upload Pages artifact
+        if: steps.should_run.outputs.skip != 'true'
+        continue-on-error: true
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard/dist
+
+      - name: Deploy to GitHub Pages
+        if: steps.should_run.outputs.skip != 'true'
+        id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
