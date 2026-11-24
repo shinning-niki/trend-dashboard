@@ -5,7 +5,7 @@ on:
     # 北京 19:30 / 20:30 / 21:30 共 3 次触发（UTC 11:30 / 12:30 / 13:30）
     # 用非整点（30 分）避开 GitHub Actions 整点高负载合并问题。
     # GitHub Actions 公开仓库 cron 严重延迟（高峰期延迟 6-9 小时甚至跳过），
-    # 即使延迟到凌晨跨日，Bark Push 现在用 asOfDate 比较逻辑也能正确推送。
+    # 即使延迟到凌晨跨日，Bark Push 用 asOfDate 比较逻辑也能正确推送。
     # 周末不开盘跳过省 API 费用。
     - cron: '30 11,12,13 * * 1-5'
   # 允许手动触发（含周末，用于紧急更新）
@@ -13,8 +13,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: dashboard-update
@@ -23,7 +21,6 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    environment: github-pages
     steps:
       - uses: actions/checkout@v4
 
@@ -41,16 +38,7 @@ jobs:
           restore-keys: |
             push-marker-
 
-      - name: Should fetch? (always run unless skip flag set)
-        # fetch 总是跑，确保看板总更新到最新交易日数据
-        # 真正的去重判定在 Bark Push step（基于 asOfDate 比较）
-        id: should_run
-        run: |
-          echo "skip=false" >> $GITHUB_OUTPUT
-          echo "✅ 继续访+build+deploy（去重判定在 Bark Push step）"
-
       - name: Cache weekly boards
-        if: steps.should_run.outputs.skip != 'true'
         uses: actions/cache@v4
         with:
           path: dashboard/data/_weekly_boards.json
@@ -59,21 +47,18 @@ jobs:
             weekly-boards-
 
       - name: Fetch dashboard data
-        if: steps.should_run.outputs.skip != 'true'
         env:
           TREND_API_KEY: ${{ secrets.TREND_API_KEY }}
         run: python dashboard/fetch_dashboard_data.py
 
       - name: Build dashboard
-        if: steps.should_run.outputs.skip != 'true'
         run: python dashboard/build_dashboard.py
 
-      # === 关键：cloudstudio push + Bark push 移到 deploy-pages 之前 ===
-      # 这样即使 GitHub Pages 服务端故障（githubstatus.com issues），
-      # cloudstudio 备份链接和 Bark 推送仍然能正常完成。
-
-      - name: Push dist to cloudstudio branch (for WorkBuddy auto-deploy)
-        if: steps.should_run.outputs.skip != 'true'
+      # === 部署：push dist 到 cloudstudio 分支 ===
+      # GitHub Pages 现在直接从 cloudstudio 分支取 index.html（build_type=legacy），
+      # 不再需要 actions/deploy-pages 服务（该服务有间歇性故障）。
+      # push 到 cloudstudio 分支后，GitHub Pages 自动检测到分支更新并重新构建。
+      - name: Push dist to cloudstudio branch (GitHub Pages source)
         run: |
           cp dashboard/dist/index.html /tmp/index.html
           git config user.name "github-actions[bot]"
@@ -93,10 +78,10 @@ jobs:
       - name: Bark Push (when asOfDate newer than last pushed)
         # 推送判定：asOfDate > .push-marker(上次推送的 asOfDate) 才推
         # 这解决了 GitHub Actions cron 凌晨跨日触发的问题：
-        #   - 凌晨跨日触发：asOf=11/5（昨天），marker=11/4（前天），asOf>marker → 推送 ✅
+        #   - 凌晨跨日触发：asOf=昨天，marker=前天，asOf>marker → 推送 ✅
         #   - 同一天重复 cron：asOf 不变，marker==asOf → 跳过 ✅
         #   - 接口没更新：asOf 还是昨天的，marker 也是昨天的 → 跳过 ✅
-        if: always() && steps.should_run.outputs.skip != 'true'
+        if: always()
         env:
           BARK_KEY: ${{ secrets.BARK_KEY }}
         run: |
@@ -178,19 +163,5 @@ jobs:
           if [ -f dashboard/dist/index.html ]; then
             echo "Build OK" >> $GITHUB_STEP_SUMMARY
           else
-            echo "Build skipped or FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "Build FAILED" >> $GITHUB_STEP_SUMMARY
           fi
-
-      # === GitHub Pages 部署放最后，失败不影响 cloudstudio/bark ===
-      - name: Upload Pages artifact
-        if: steps.should_run.outputs.skip != 'true'
-        continue-on-error: true
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dashboard/dist
-
-      - name: Deploy to GitHub Pages
-        if: steps.should_run.outputs.skip != 'true'
-        id: deployment
-        continue-on-error: true
-        uses: actions/deploy-pages@v4
