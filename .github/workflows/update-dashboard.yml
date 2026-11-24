@@ -2,12 +2,12 @@ name: Update Trend Dashboard
 
 on:
   schedule:
-    # 北京 19:30 / 20:30 / 21:30 共 3 次触发（UTC 11:30 / 12:30 / 13:30）
+    # 北京 19:30 / 20:30 / 21:30 / 22:30 / 23:30 共 5 次触发（UTC 11:30 / 12:30 / 13:30 / 14:30 / 15:30）
     # 用非整点（30 分）避开 GitHub Actions 整点高负载合并问题。
-    # GitHub Actions 公开仓库 cron 严重延迟（高峰期延迟 6-9 小时甚至跳过），
-    # 即使延迟到凌晨跨日，Bark Push 用 asOfDate 比较逻辑也能正确推送。
+    # 5 次覆盖更广时间窗口，即使 GitHub 跳过 1-2 次，剩下的也能触发。
     # 周末不开盘跳过省 API 费用。
-    - cron: '30 11,12,13 * * 1-5'
+    # 另有 WorkBuddy automation 作为外部兜底触发器（不依赖 GitHub schedule）。
+    - cron: '30 11,12,13,14,15 * * 1-5'
   # 允许手动触发（含周末，用于紧急更新）
   workflow_dispatch:
 
